@@ -1,4 +1,3 @@
-# train_fashionmnist.py
 import os
 import argparse
 import random
@@ -24,9 +23,11 @@ def set_seed(seed=42):
         torch.cuda.manual_seed_all(seed)
 
 
-def accuracy(output, target):
+def accuracy(output: torch.Tensor, target: torch.Tensor) -> float:
     preds = output.argmax(dim=1)
-    return (preds == target).float().mean().item()
+    correct = (preds == target).float()
+    return correct.mean().item()
+
 
 
 # ---------------------------
@@ -113,9 +114,9 @@ def validate(model, device, dataloader, criterion):
 # ---------------------------
 # Main
 # ---------------------------
-def main(args):
-    set_seed(args.seed)
-    device = torch.device("cuda" if torch.cuda.is_available() and not args.use_cpu else "cpu")
+def main(_args):
+    set_seed(_args.seed)
+    device = torch.device("cuda" if torch.cuda.is_available() and not _args.use_cpu else "cpu")
     print("Device:", device)
 
     # Transforms: include some augmentations for training
@@ -132,27 +133,27 @@ def main(args):
     ])
 
     # Datasets
-    data_root = args.data_dir
+    data_root = _args.data_dir
     train_dataset = datasets.FashionMNIST(root=data_root, train=True, download=True, transform=train_transform)
     val_dataset = datasets.FashionMNIST(root=data_root, train=False, download=True, transform=val_transform)
 
-    train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=args.num_workers, pin_memory=True)
-    val_loader = DataLoader(val_dataset, batch_size=args.batch_size, shuffle=False, num_workers=args.num_workers, pin_memory=True)
+    train_loader = DataLoader(train_dataset, batch_size=_args.batch_size, shuffle=True, num_workers=_args.num_workers, pin_memory=True)
+    val_loader = DataLoader(val_dataset, batch_size=_args.batch_size, shuffle=False, num_workers=_args.num_workers, pin_memory=True)
 
     # Model
-    model = CNN3Baseline(num_classes=10, dropout_p=args.dropout).to(device)
+    model = CNN3Baseline(num_classes=10, dropout_p=_args.dropout).to(device)
     print("Model params:", sum(p.numel() for p in model.parameters()))
     criterion = nn.CrossEntropyLoss()
-    optimizer = optim.Adam(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
-    scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='max', factor=0.5, patience=3, verbose=True)
+    optimizer = optim.Adam(model.parameters(), lr=_args.lr, weight_decay=_args.weight_decay)
+    scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='max', factor=0.5, patience=3)
 
     best_val_acc = 0.0
     history = {'train_loss':[], 'train_acc':[], 'val_loss':[], 'val_acc':[]}
 
-    os.makedirs(args.save_dir, exist_ok=True)
+    os.makedirs(_args.save_dir, exist_ok=True)
 
-    for epoch in range(1, args.epochs + 1):
-        print(f"Epoch {epoch}/{args.epochs}")
+    for epoch in range(1, _args.epochs + 1):
+        print(f"Epoch {epoch}/{_args.epochs}")
         train_loss, train_acc = train_one_epoch(model, device, train_loader, criterion, optimizer)
         val_loss, val_acc = validate(model, device, val_loader, criterion)
 
@@ -169,12 +170,12 @@ def main(args):
         # save best
         if val_acc > best_val_acc:
             best_val_acc = val_acc
-            ckpt_path = os.path.join(args.save_dir, f"best_model_epoch{epoch}_acc{val_acc:.4f}.pth")
+            ckpt_path = os.path.join(_args.save_dir, f"best_model_epoch{epoch}_acc{val_acc:.4f}.pth")
             torch.save({'epoch': epoch, 'model_state': model.state_dict(), 'val_acc': val_acc}, ckpt_path)
             print("  Saved best model:", ckpt_path)
 
         # save last
-        last_path = os.path.join(args.save_dir, f"last_model_epoch{epoch}.pth")
+        last_path = os.path.join(_args.save_dir, f"last_model_epoch{epoch}.pth")
         torch.save({'epoch': epoch, 'model_state': model.state_dict(), 'val_acc': val_acc}, last_path)
 
     # Plot curves
@@ -192,7 +193,7 @@ def main(args):
     plt.title('Accuracy')
 
     plt.tight_layout()
-    plot_path = os.path.join(args.save_dir, "training_curves.png")
+    plot_path = os.path.join(_args.save_dir, "training_curves.png")
     plt.savefig(plot_path)
     print("Saved training plot to", plot_path)
     print("Best val acc:", best_val_acc)
